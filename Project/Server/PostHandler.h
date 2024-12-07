@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <mutex>
 
 struct Post {
     std::string author;
@@ -18,7 +19,7 @@ class PostHandler {
 public:
 
     //C
-    PostHandler(const std::string& dataFile = "posts.dat");
+    PostHandler(const std::string& dataFile);
     bool loadPosts();
     //R
     std::vector<Post> GetAllPosts() const;
@@ -32,6 +33,7 @@ public:
 private:
     std::string dataFile;
     std::vector<Post> posts;
+    mutable std::mutex postsMutex;
 };
 
 #endif // NETWORKINGASN3_POSTHANDLER_H

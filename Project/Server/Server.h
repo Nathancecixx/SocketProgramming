@@ -21,7 +21,7 @@ class Server {
 public:
     Server()
     : postHandler("posts.txt"),
-      authHandler("auth.dat"){}
+      authHandler("auth.txt"){}
 
     bool Init(int BindPort, int MaxConnections);
     bool Start();

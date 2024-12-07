@@ -5,6 +5,7 @@ bool Server::Init(int BindPort, int MaxConnections) {
     this->bindPort = BindPort;
     this->maxConnections = MaxConnections;
     this->postHandler.loadPosts();
+    this->authHandler.loadAuth();
     return true;
 }
 
@@ -22,6 +23,7 @@ bool Server::Start() {
 
 bool Server::Close() {
     this->postHandler.savePosts();
+    this->authHandler.saveAuth();
     if (serverSocket) close(serverSocket);
     return true;
 }
@@ -78,26 +80,27 @@ void Server::handleClient(int clientSocket) {
 
         if (messageTypeFlag == '0') {
             // Posting
-            std::getline(ss, token, ' '); // Author length
+            std::getline(ss, token, ' ');
             int authorLength = std::stoi(token);
 
-            std::getline(ss, token, ' '); // Topic length
+            std::getline(ss, token, ' ');
             int topicLength = std::stoi(token);
 
-            std::getline(ss, token, ' '); // Message length
+            std::getline(ss, token, ' ');
             int messageLength = std::stoi(token);
 
             std::getline(ss, token, ' '); // Skip ||||
 
-            std::getline(ss, token, ' '); // Author
+            std::getline(ss, token, ' ');
             std::string author = token.substr(0, authorLength);
 
-            std::getline(ss, token, ' '); // Topic
+            std::getline(ss, token, ' ');
             std::string topic = token.substr(0, topicLength);
 
-            std::getline(ss, token); // Message
+            std::getline(ss, token);
             std::string message = token.substr(0, messageLength);
 
+            message[messageLength] = '\0';
             //TODO:
             // Remove newlines:
 
@@ -110,13 +113,15 @@ void Server::handleClient(int clientSocket) {
             send(clientSocket, response.c_str(), response.size(), 0);
         } else if (messageTypeFlag == '1') {
             // Viewing
-            std::getline(ss, token, ' '); // FilterFlag
+            std::getline(ss, token, ' ');
             char filterFlag = token[0];
 
-            std::getline(ss, token, ' '); // Filter length
+            std::getline(ss, token, ' ');
             int filterLength = std::stoi(token);
 
-            std::getline(ss, token, '|'); // Filter value
+            std::getline(ss, token, ' '); // Skip ||||
+
+            std::getline(ss, token, ' ');
             std::string filter = token.substr(0, filterLength);
 
             std::vector<Post> results;
@@ -138,20 +143,21 @@ void Server::handleClient(int clientSocket) {
             send(clientSocket, response.c_str(), response.size(), 0);
         } else if (messageTypeFlag == '2') {
             // Authentication
-            std::getline(ss, token, ' '); // Username length
+            std::getline(ss, token, ' ');
             int usernameLength = std::stoi(token);
 
-            std::getline(ss, token, ' '); // Password length
+            std::getline(ss, token, ' ');
             int passwordLength = std::stoi(token);
 
-            std::getline(ss, token, '|'); // Username
+            std::getline(ss, token, '|');
             std::string username = token.substr(0, usernameLength);
 
-            std::getline(ss, token, '|'); // Password
+            std::getline(ss, token, '|');
             std::string password = token.substr(0, passwordLength);
 
-            // For now, just echo the username and password
-            std::string response = "Authenticated user: " + username;
+            std::string response;
+            if (this->authHandler.verifyUser(username, password)) response = "Successfully authenticated.";
+            else response = "Failed to authenticate.";
             send(clientSocket, response.c_str(), response.size(), 0);
         } else {
             // Unknown type

@@ -4,6 +4,7 @@ PostHandler::PostHandler(const std::string& dataFile)
     : dataFile(dataFile) {}
 
 bool PostHandler::loadPosts() {
+    std::lock_guard<std::mutex> lock(postsMutex);
     std::ifstream infile(dataFile);
     if (!infile) {
         std::cout << "No existing posts to load from " << dataFile << "." << std::endl;
@@ -16,10 +17,10 @@ bool PostHandler::loadPosts() {
     while (std::getline(infile, line)) {
         std::istringstream iss(line);
         Post post;
-        if (!std::getline(iss, post.author, '|')) continue;
-        if (!std::getline(iss, post.topic, '|')) continue;
-        if (!std::getline(iss, post.content, '|')) continue;
         if (!std::getline(iss, post.timestamp, '|')) continue;
+        if (!std::getline(iss, post.author, ' ')) continue;
+        if (!std::getline(iss, post.topic, ' ')) continue;
+        if (!std::getline(iss, post.content, '\n')) continue;
 
         posts.push_back(post);
     }
@@ -30,6 +31,7 @@ bool PostHandler::loadPosts() {
 }
 
 bool PostHandler::savePosts() {
+    std::lock_guard<std::mutex> lock(postsMutex);
     std::ofstream outfile(dataFile, std::ofstream::trunc);
     if (!outfile) {
         std::cerr << "Error: Could not open file for saving: " << dataFile << std::endl;
@@ -37,10 +39,10 @@ bool PostHandler::savePosts() {
     }
 
     for (const auto& post : posts) {
-        outfile << post.author << "|"
-                << post.topic << "|"
-                << post.content << "|"
-                << post.timestamp << "|\n";
+        outfile << "|" << post.timestamp << "|"
+                << post.author << " "
+                << post.topic << " "
+                << post.content << "\n";
     }
 
     outfile.close();
@@ -49,6 +51,7 @@ bool PostHandler::savePosts() {
 }
 
 std::vector<Post> PostHandler::GetAllPosts() const {
+    std::lock_guard<std::mutex> lock(postsMutex);
     std::vector<Post> result;
     for (const auto& p : posts) {
         result.push_back(p);
@@ -57,6 +60,7 @@ std::vector<Post> PostHandler::GetAllPosts() const {
 }
 
 std::vector<Post> PostHandler::GetPostsByTopic(const std::string& topic) const {
+    std::lock_guard<std::mutex> lock(postsMutex);
     std::vector<Post> result;
     for (const auto& p : posts) {
         if (p.topic == topic) {
@@ -67,6 +71,7 @@ std::vector<Post> PostHandler::GetPostsByTopic(const std::string& topic) const {
 }
 
 std::vector<Post> PostHandler::GetPostsByAuthor(const std::string& author) const {
+    std::lock_guard<std::mutex> lock(postsMutex);
     std::vector<Post> result;
     for (const auto& p : posts) {
         if (p.author == author) {
@@ -77,6 +82,7 @@ std::vector<Post> PostHandler::GetPostsByAuthor(const std::string& author) const
 }
 
 bool PostHandler::AddPost(const Post& post) {
+    std::lock_guard<std::mutex> lock(postsMutex);
     posts.push_back(post);
     // Immediately save to persist changes
     return savePosts();
