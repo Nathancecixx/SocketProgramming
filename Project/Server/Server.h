@@ -23,7 +23,7 @@ public:
     : postHandler("posts.txt"),
       authHandler("auth.txt"){}
 
-    bool Init(int BindPort, int MaxConnections);
+    bool Init(int BindPort, int MaxConnections, int MaxPacketSize);
     bool Start();
     bool Close();
     
@@ -33,6 +33,7 @@ private:
     int serverSocket;
     int bindPort;
     int maxConnections;
+    int maxPacketSize;
 
     bool CreateSocket();
     bool BindnListen();

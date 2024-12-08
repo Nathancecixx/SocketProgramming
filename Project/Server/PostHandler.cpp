@@ -1,5 +1,7 @@
 #include "PostHandler.h"
 
+#include <cstring>
+
 PostHandler::PostHandler(const std::string& dataFile)
     : dataFile(dataFile) {}
 
@@ -17,6 +19,8 @@ bool PostHandler::loadPosts() {
     while (std::getline(infile, line)) {
         std::istringstream iss(line);
         Post post;
+        std::string tmp;
+        if (!std::getline(iss, tmp, '|')) continue;
         if (!std::getline(iss, post.timestamp, '|')) continue;
         if (!std::getline(iss, post.author, ' ')) continue;
         if (!std::getline(iss, post.topic, ' ')) continue;
@@ -32,6 +36,7 @@ bool PostHandler::loadPosts() {
 
 bool PostHandler::savePosts() {
     std::lock_guard<std::mutex> lock(postsMutex);
+    std::cout << "Start of saving post" << std::endl;
     std::ofstream outfile(dataFile, std::ofstream::trunc);
     if (!outfile) {
         std::cerr << "Error: Could not open file for saving: " << dataFile << std::endl;
@@ -44,6 +49,8 @@ bool PostHandler::savePosts() {
                 << post.topic << " "
                 << post.content << "\n";
     }
+
+    std::cout << "Made it to post writing" << std::endl;
 
     outfile.close();
     std::cout << "Saved " << posts.size() << " posts to file." << std::endl;
@@ -84,6 +91,5 @@ std::vector<Post> PostHandler::GetPostsByAuthor(const std::string& author) const
 bool PostHandler::AddPost(const Post& post) {
     std::lock_guard<std::mutex> lock(postsMutex);
     posts.push_back(post);
-    // Immediately save to persist changes
-    return savePosts();
+    return true;
 }

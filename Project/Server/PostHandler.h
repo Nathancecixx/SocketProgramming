@@ -36,5 +36,5 @@ private:
     mutable std::mutex postsMutex;
 };
 
-#endif // NETWORKINGASN3_POSTHANDLER_H
+#endif
 

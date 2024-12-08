@@ -1,9 +1,10 @@
 #include "Server.h"
 
-bool Server::Init(int BindPort, int MaxConnections) {
+bool Server::Init(int BindPort, int MaxConnections, int MaxPacketSize) {
     if (!this->CreateSocket()) return false;
     this->bindPort = BindPort;
     this->maxConnections = MaxConnections;
+    this->maxPacketSize = MaxPacketSize;
     this->postHandler.loadPosts();
     this->authHandler.loadAuth();
     return true;
@@ -66,12 +67,16 @@ bool Server::BindnListen(){
 void Server::handleClient(int clientSocket) {
     std::cout << "Client " << clientSocket << " is being handled" << std::endl;
 
-    char clientBuffer[1024];
+    char clientBuffer[this->maxPacketSize];
     int bytesReceived;
 
     while ((bytesReceived = recv(clientSocket, clientBuffer, sizeof(clientBuffer) - 1, 0)) > 0) {
-        clientBuffer[bytesReceived] = '\0'; // Null-terminate the received data for safety
-        std::istringstream ss(clientBuffer); // Wrap the received message in a string stream
+        clientBuffer[bytesReceived] = '\0';
+
+        std::cout << clientBuffer << std::endl;
+
+        // Wrap the received message in a string stream
+        std::istringstream ss(clientBuffer);
         std::string token;
 
         // Extract the MessageTypeFlag
@@ -97,19 +102,18 @@ void Server::handleClient(int clientSocket) {
             std::getline(ss, token, ' ');
             std::string topic = token.substr(0, topicLength);
 
-            std::getline(ss, token);
-            std::string message = token.substr(0, messageLength);
 
-            message[messageLength] = '\0';
-            //TODO:
-            // Remove newlines:
+            std::string message(messageLength, '\0');
+            ss.read(&message[0], messageLength);
+
 
             // Add post
             std::string currentTime = this->GetCurrentTime();
             Post newPost = {author, topic, message, currentTime};
             postHandler.AddPost(newPost);
+            postHandler.savePosts();
 
-            std::string response = "Post received and saved.";
+            std::string response = "0";
             send(clientSocket, response.c_str(), response.size(), 0);
         } else if (messageTypeFlag == '1') {
             // Viewing
@@ -137,10 +141,18 @@ void Server::handleClient(int clientSocket) {
             }
 
             std::string response;
-            for (const auto& post : results) {
-                response += post.author + "|" + post.topic + "|" + post.content + "|" + post.timestamp + "\n";
+            if (results.size() > 0) {
+                for (const auto& post : results) {
+                    response += "|" + post.timestamp + "|\n" + post.author + "|" + post.topic + "|" + post.content + "\n\n";
+                }
+            } else {
+                response = "No results found.";
             }
+
+            response[response.length()] = '\0';
+            std::cout << response << std::endl;
             send(clientSocket, response.c_str(), response.size(), 0);
+
         } else if (messageTypeFlag == '2') {
             // Authentication
             std::getline(ss, token, ' ');
@@ -149,15 +161,19 @@ void Server::handleClient(int clientSocket) {
             std::getline(ss, token, ' ');
             int passwordLength = std::stoi(token);
 
-            std::getline(ss, token, '|');
+            std::getline(ss, token, ' '); // Skip ||||
+
+            std::getline(ss, token, ' ');
             std::string username = token.substr(0, usernameLength);
 
-            std::getline(ss, token, '|');
+            std::getline(ss, token, ' ');
             std::string password = token.substr(0, passwordLength);
 
+            //TODO:
+            // edit based on client
             std::string response;
-            if (this->authHandler.verifyUser(username, password)) response = "Successfully authenticated.";
-            else response = "Failed to authenticate.";
+            if (this->authHandler.verifyUser(username, password)) response = "0";
+            else response = "1";
             send(clientSocket, response.c_str(), response.size(), 0);
         } else {
             // Unknown type
